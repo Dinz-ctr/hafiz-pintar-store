@@ -12,6 +12,8 @@ import (
 )
 
 const createProduct = `-- name: CreateProduct :one
+
+
 INSERT INTO products (
     category_id,
     sku,
@@ -37,6 +39,12 @@ type CreateProductParams struct {
 	WeightGram  int32   `json:"weight_gram"`
 }
 
+// =========================================
+// LEGACY QUERIES
+// Jangan digunakan untuk alur CRUD baru.
+// Akan digantikan dengan transaksi produk
+// dan varian pada tahap berikutnya.
+// =========================================
 func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error) {
 	row := q.db.QueryRow(ctx, createProduct,
 		arg.CategoryID,
@@ -66,74 +74,292 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 	return i, err
 }
 
+const createProductBase = `-- name: CreateProductBase :one
+INSERT INTO products (
+    category_id,
+    sku,
+    name,
+    slug,
+    description,
+    price,
+    stock_qty,
+    weight_gram,
+    status
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active')
+RETURNING id, name, slug
+`
+
+type CreateProductBaseParams struct {
+	CategoryID  *int64  `json:"category_id"`
+	Sku         string  `json:"sku"`
+	Name        string  `json:"name"`
+	Slug        string  `json:"slug"`
+	Description *string `json:"description"`
+	Price       int64   `json:"price"`
+	StockQty    int32   `json:"stock_qty"`
+	WeightGram  int32   `json:"weight_gram"`
+}
+
+type CreateProductBaseRow struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+}
+
+func (q *Queries) CreateProductBase(ctx context.Context, arg CreateProductBaseParams) (CreateProductBaseRow, error) {
+	row := q.db.QueryRow(ctx, createProductBase,
+		arg.CategoryID,
+		arg.Sku,
+		arg.Name,
+		arg.Slug,
+		arg.Description,
+		arg.Price,
+		arg.StockQty,
+		arg.WeightGram,
+	)
+	var i CreateProductBaseRow
+	err := row.Scan(&i.ID, &i.Name, &i.Slug)
+	return i, err
+}
+
+const createProductVariant = `-- name: CreateProductVariant :one
+INSERT INTO product_variants (
+    product_id,
+    sku,
+    name,
+    price,
+    stock_qty,
+    weight_gram,
+    is_default,
+    is_active
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
+RETURNING id, product_id, sku, name
+`
+
+type CreateProductVariantParams struct {
+	ProductID  int64  `json:"product_id"`
+	Sku        string `json:"sku"`
+	Name       string `json:"name"`
+	Price      int64  `json:"price"`
+	StockQty   int32  `json:"stock_qty"`
+	WeightGram int32  `json:"weight_gram"`
+	IsDefault  bool   `json:"is_default"`
+}
+
+type CreateProductVariantRow struct {
+	ID        int64  `json:"id"`
+	ProductID int64  `json:"product_id"`
+	Sku       string `json:"sku"`
+	Name      string `json:"name"`
+}
+
+func (q *Queries) CreateProductVariant(ctx context.Context, arg CreateProductVariantParams) (CreateProductVariantRow, error) {
+	row := q.db.QueryRow(ctx, createProductVariant,
+		arg.ProductID,
+		arg.Sku,
+		arg.Name,
+		arg.Price,
+		arg.StockQty,
+		arg.WeightGram,
+		arg.IsDefault,
+	)
+	var i CreateProductVariantRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProductID,
+		&i.Sku,
+		&i.Name,
+	)
+	return i, err
+}
+
+const createVariantAttribute = `-- name: CreateVariantAttribute :one
+INSERT INTO variant_attributes (
+    product_id,
+    name
+)
+VALUES ($1, $2)
+RETURNING id, product_id, name
+`
+
+type CreateVariantAttributeParams struct {
+	ProductID int64  `json:"product_id"`
+	Name      string `json:"name"`
+}
+
+func (q *Queries) CreateVariantAttribute(ctx context.Context, arg CreateVariantAttributeParams) (VariantAttribute, error) {
+	row := q.db.QueryRow(ctx, createVariantAttribute, arg.ProductID, arg.Name)
+	var i VariantAttribute
+	err := row.Scan(&i.ID, &i.ProductID, &i.Name)
+	return i, err
+}
+
+const createVariantAttributeValue = `-- name: CreateVariantAttributeValue :one
+INSERT INTO variant_attribute_values (
+    variant_id,
+    product_id,
+    attribute_id,
+    value
+)
+VALUES ($1, $2, $3, $4)
+RETURNING id, variant_id, attribute_id, value
+`
+
+type CreateVariantAttributeValueParams struct {
+	VariantID   int64  `json:"variant_id"`
+	ProductID   int64  `json:"product_id"`
+	AttributeID int64  `json:"attribute_id"`
+	Value       string `json:"value"`
+}
+
+type CreateVariantAttributeValueRow struct {
+	ID          int64  `json:"id"`
+	VariantID   int64  `json:"variant_id"`
+	AttributeID int64  `json:"attribute_id"`
+	Value       string `json:"value"`
+}
+
+func (q *Queries) CreateVariantAttributeValue(ctx context.Context, arg CreateVariantAttributeValueParams) (CreateVariantAttributeValueRow, error) {
+	row := q.db.QueryRow(ctx, createVariantAttributeValue,
+		arg.VariantID,
+		arg.ProductID,
+		arg.AttributeID,
+		arg.Value,
+	)
+	var i CreateVariantAttributeValueRow
+	err := row.Scan(
+		&i.ID,
+		&i.VariantID,
+		&i.AttributeID,
+		&i.Value,
+	)
+	return i, err
+}
+
+const deleteProduct = `-- name: DeleteProduct :execrows
+DELETE FROM products
+WHERE id = $1
+`
+
+func (q *Queries) DeleteProduct(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteProduct, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteProductVariant = `-- name: DeleteProductVariant :execrows
+DELETE FROM product_variants
+WHERE id = $1
+  AND product_id = $2
+  AND is_default = FALSE
+`
+
+type DeleteProductVariantParams struct {
+	ID        int64 `json:"id"`
+	ProductID int64 `json:"product_id"`
+}
+
+func (q *Queries) DeleteProductVariant(ctx context.Context, arg DeleteProductVariantParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteProductVariant, arg.ID, arg.ProductID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getProductBySlug = `-- name: GetProductBySlug :one
 SELECT
     p.id,
-    p.sku,
     p.name,
     p.slug,
     p.description,
-    p.price,
-    p.stock_qty,
-    p.weight_gram,
     p.category_id,
     c.name AS category_name,
+    v.id AS variant_id,
+    v.sku,
+    v.name AS variant_name,
+    v.price,
+    v.stock_qty,
+    v.weight_gram,
     p.created_at
 FROM products p
-LEFT JOIN categories c ON c.id = p.category_id
+JOIN product_variants v
+    ON v.product_id = p.id
+    AND v.is_default = TRUE
+    AND v.is_active = TRUE
+LEFT JOIN categories c
+    ON c.id = p.category_id
 WHERE p.slug = $1
-  AND p.status = 'active'
+    AND p.status = 'active'
 LIMIT 1
 `
 
 type GetProductBySlugRow struct {
 	ID           int64              `json:"id"`
-	Sku          string             `json:"sku"`
 	Name         string             `json:"name"`
 	Slug         string             `json:"slug"`
 	Description  *string            `json:"description"`
+	CategoryID   *int64             `json:"category_id"`
+	CategoryName *string            `json:"category_name"`
+	VariantID    int64              `json:"variant_id"`
+	Sku          string             `json:"sku"`
+	VariantName  string             `json:"variant_name"`
 	Price        int64              `json:"price"`
 	StockQty     int32              `json:"stock_qty"`
 	WeightGram   int32              `json:"weight_gram"`
-	CategoryID   *int64             `json:"category_id"`
-	CategoryName *string            `json:"category_name"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
+// Mengambil detail produk aktif berdasarkan slug.
 func (q *Queries) GetProductBySlug(ctx context.Context, slug string) (GetProductBySlugRow, error) {
 	row := q.db.QueryRow(ctx, getProductBySlug, slug)
 	var i GetProductBySlugRow
 	err := row.Scan(
 		&i.ID,
-		&i.Sku,
 		&i.Name,
 		&i.Slug,
 		&i.Description,
+		&i.CategoryID,
+		&i.CategoryName,
+		&i.VariantID,
+		&i.Sku,
+		&i.VariantName,
 		&i.Price,
 		&i.StockQty,
 		&i.WeightGram,
-		&i.CategoryID,
-		&i.CategoryName,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const listActiveProducts = `-- name: ListActiveProducts :many
+
+
 SELECT
     p.id,
-    p.sku,
     p.name,
     p.slug,
     p.description,
-    p.price,
-    p.stock_qty,
-    p.weight_gram,
     p.category_id,
     c.name AS category_name,
+    v.id AS variant_id,
+    v.sku,
+    v.name AS variant_name,
+    v.price,
+    v.stock_qty,
+    v.weight_gram,
     p.created_at
 FROM products p
-LEFT JOIN categories c ON c.id = p.category_id
+JOIN product_variants v
+    ON v.product_id = p.id
+    AND v.is_default = TRUE
+    AND v.is_active = TRUE
+LEFT JOIN categories c
+    ON c.id = p.category_id
 WHERE p.status = 'active'
 ORDER BY p.created_at DESC
 LIMIT $1 OFFSET $2
@@ -146,18 +372,25 @@ type ListActiveProductsParams struct {
 
 type ListActiveProductsRow struct {
 	ID           int64              `json:"id"`
-	Sku          string             `json:"sku"`
 	Name         string             `json:"name"`
 	Slug         string             `json:"slug"`
 	Description  *string            `json:"description"`
+	CategoryID   *int64             `json:"category_id"`
+	CategoryName *string            `json:"category_name"`
+	VariantID    int64              `json:"variant_id"`
+	Sku          string             `json:"sku"`
+	VariantName  string             `json:"variant_name"`
 	Price        int64              `json:"price"`
 	StockQty     int32              `json:"stock_qty"`
 	WeightGram   int32              `json:"weight_gram"`
-	CategoryID   *int64             `json:"category_id"`
-	CategoryName *string            `json:"category_name"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
+// =========================================
+// PRODUCT QUERIES
+// Hafiz Pintar Store
+// =========================================
+// Mengambil daftar produk aktif beserta varian default.
 func (q *Queries) ListActiveProducts(ctx context.Context, arg ListActiveProductsParams) ([]ListActiveProductsRow, error) {
 	rows, err := q.db.Query(ctx, listActiveProducts, arg.Limit, arg.Offset)
 	if err != nil {
@@ -169,15 +402,17 @@ func (q *Queries) ListActiveProducts(ctx context.Context, arg ListActiveProducts
 		var i ListActiveProductsRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Sku,
 			&i.Name,
 			&i.Slug,
 			&i.Description,
+			&i.CategoryID,
+			&i.CategoryName,
+			&i.VariantID,
+			&i.Sku,
+			&i.VariantName,
 			&i.Price,
 			&i.StockQty,
 			&i.WeightGram,
-			&i.CategoryID,
-			&i.CategoryName,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -191,6 +426,8 @@ func (q *Queries) ListActiveProducts(ctx context.Context, arg ListActiveProducts
 }
 
 const listProductImages = `-- name: ListProductImages :many
+
+
 SELECT
     id,
     product_id,
@@ -200,7 +437,10 @@ SELECT
     sort_order
 FROM product_images
 WHERE product_id = $1
-ORDER BY is_primary DESC, sort_order ASC, id ASC
+ORDER BY
+    is_primary DESC,
+    sort_order ASC,
+    id ASC
 `
 
 type ListProductImagesRow struct {
@@ -212,6 +452,9 @@ type ListProductImagesRow struct {
 	SortOrder int32   `json:"sort_order"`
 }
 
+// =========================================
+// PRODUCT IMAGES
+// =========================================
 func (q *Queries) ListProductImages(ctx context.Context, productID int64) ([]ListProductImagesRow, error) {
 	rows, err := q.db.Query(ctx, listProductImages, productID)
 	if err != nil {
@@ -237,6 +480,262 @@ func (q *Queries) ListProductImages(ctx context.Context, productID int64) ([]Lis
 		return nil, err
 	}
 	return items, nil
+}
+
+const listProductVariants = `-- name: ListProductVariants :many
+SELECT
+    id,
+    product_id,
+    sku,
+    name,
+    price,
+    stock_qty,
+    weight_gram,
+    is_default,
+    is_active
+FROM product_variants
+WHERE product_id = $1
+  AND is_active = TRUE
+ORDER BY is_default DESC, id ASC
+`
+
+type ListProductVariantsRow struct {
+	ID         int64  `json:"id"`
+	ProductID  int64  `json:"product_id"`
+	Sku        string `json:"sku"`
+	Name       string `json:"name"`
+	Price      int64  `json:"price"`
+	StockQty   int32  `json:"stock_qty"`
+	WeightGram int32  `json:"weight_gram"`
+	IsDefault  bool   `json:"is_default"`
+	IsActive   bool   `json:"is_active"`
+}
+
+func (q *Queries) ListProductVariants(ctx context.Context, productID int64) ([]ListProductVariantsRow, error) {
+	rows, err := q.db.Query(ctx, listProductVariants, productID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListProductVariantsRow{}
+	for rows.Next() {
+		var i ListProductVariantsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProductID,
+			&i.Sku,
+			&i.Name,
+			&i.Price,
+			&i.StockQty,
+			&i.WeightGram,
+			&i.IsDefault,
+			&i.IsActive,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listVariantAttributes = `-- name: ListVariantAttributes :many
+SELECT
+    va.id AS attribute_id,
+    va.name AS attribute_name,
+    vav.value AS attribute_value
+FROM variant_attribute_values vav
+JOIN variant_attributes va
+    ON va.id = vav.attribute_id
+   AND va.product_id = vav.product_id
+WHERE vav.variant_id = $1
+ORDER BY va.name ASC
+`
+
+type ListVariantAttributesRow struct {
+	AttributeID    int64  `json:"attribute_id"`
+	AttributeName  string `json:"attribute_name"`
+	AttributeValue string `json:"attribute_value"`
+}
+
+func (q *Queries) ListVariantAttributes(ctx context.Context, variantID int64) ([]ListVariantAttributesRow, error) {
+	rows, err := q.db.Query(ctx, listVariantAttributes, variantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListVariantAttributesRow{}
+	for rows.Next() {
+		var i ListVariantAttributesRow
+		if err := rows.Scan(&i.AttributeID, &i.AttributeName, &i.AttributeValue); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchActiveProducts = `-- name: SearchActiveProducts :many
+
+SELECT
+    p.id,
+    p.name,
+    p.slug,
+    p.description,
+    p.category_id,
+    c.name AS category_name,
+    v.id AS variant_id,
+    v.sku,
+    v.name AS variant_name,
+    v.price,
+    v.stock_qty,
+    v.weight_gram,
+    p.created_at
+FROM products p
+JOIN product_variants v
+    ON v.product_id = p.id
+    AND v.is_default = TRUE
+    AND v.is_active = TRUE
+LEFT JOIN categories c
+    ON c.id = p.category_id
+WHERE p.status = 'active'
+  AND (
+      p.name ILIKE '%' || $1::text || '%'
+      OR p.description ILIKE '%' || $1::text || '%'
+  )
+  AND (
+      $2::bigint IS NULL
+      OR p.category_id = $2::bigint
+  )
+ORDER BY p.created_at DESC
+LIMIT $4::integer
+OFFSET $3::integer
+`
+
+type SearchActiveProductsParams struct {
+	Keyword     string `json:"keyword"`
+	CategoryID  *int64 `json:"category_id"`
+	OffsetCount int32  `json:"offset_count"`
+	LimitCount  int32  `json:"limit_count"`
+}
+
+type SearchActiveProductsRow struct {
+	ID           int64              `json:"id"`
+	Name         string             `json:"name"`
+	Slug         string             `json:"slug"`
+	Description  *string            `json:"description"`
+	CategoryID   *int64             `json:"category_id"`
+	CategoryName *string            `json:"category_name"`
+	VariantID    int64              `json:"variant_id"`
+	Sku          string             `json:"sku"`
+	VariantName  string             `json:"variant_name"`
+	Price        int64              `json:"price"`
+	StockQty     int32              `json:"stock_qty"`
+	WeightGram   int32              `json:"weight_gram"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+// =========================================
+// PRODUCT MANAGEMENT: SEARCH & FILTER
+// =========================================
+func (q *Queries) SearchActiveProducts(ctx context.Context, arg SearchActiveProductsParams) ([]SearchActiveProductsRow, error) {
+	rows, err := q.db.Query(ctx, searchActiveProducts,
+		arg.Keyword,
+		arg.CategoryID,
+		arg.OffsetCount,
+		arg.LimitCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchActiveProductsRow{}
+	for rows.Next() {
+		var i SearchActiveProductsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.Description,
+			&i.CategoryID,
+			&i.CategoryName,
+			&i.VariantID,
+			&i.Sku,
+			&i.VariantName,
+			&i.Price,
+			&i.StockQty,
+			&i.WeightGram,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateProductDetails = `-- name: UpdateProductDetails :one
+
+UPDATE products
+SET
+    name = $2,
+    slug = $3,
+    description = $4,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING
+    id,
+    name,
+    slug,
+    description,
+    category_id,
+    updated_at
+`
+
+type UpdateProductDetailsParams struct {
+	ID          int64   `json:"id"`
+	Name        string  `json:"name"`
+	Slug        string  `json:"slug"`
+	Description *string `json:"description"`
+}
+
+type UpdateProductDetailsRow struct {
+	ID          int64              `json:"id"`
+	Name        string             `json:"name"`
+	Slug        string             `json:"slug"`
+	Description *string            `json:"description"`
+	CategoryID  *int64             `json:"category_id"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+// =========================================
+// PRODUCT MANAGEMENT: UPDATE & DELETE
+// =========================================
+func (q *Queries) UpdateProductDetails(ctx context.Context, arg UpdateProductDetailsParams) (UpdateProductDetailsRow, error) {
+	row := q.db.QueryRow(ctx, updateProductDetails,
+		arg.ID,
+		arg.Name,
+		arg.Slug,
+		arg.Description,
+	)
+	var i UpdateProductDetailsRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.Description,
+		&i.CategoryID,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const updateProductStock = `-- name: UpdateProductStock :one
@@ -270,6 +769,73 @@ func (q *Queries) UpdateProductStock(ctx context.Context, arg UpdateProductStock
 		&i.Name,
 		&i.StockQty,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateProductVariant = `-- name: UpdateProductVariant :one
+UPDATE product_variants
+SET
+    name = $3,
+    price = $4,
+    stock_qty = $5,
+    weight_gram = $6,
+    updated_at = NOW()
+WHERE id = $1
+  AND product_id = $2
+RETURNING
+    id,
+    product_id,
+    sku,
+    name,
+    price,
+    stock_qty,
+    weight_gram,
+    is_default,
+    is_active
+`
+
+type UpdateProductVariantParams struct {
+	ID         int64  `json:"id"`
+	ProductID  int64  `json:"product_id"`
+	Name       string `json:"name"`
+	Price      int64  `json:"price"`
+	StockQty   int32  `json:"stock_qty"`
+	WeightGram int32  `json:"weight_gram"`
+}
+
+type UpdateProductVariantRow struct {
+	ID         int64  `json:"id"`
+	ProductID  int64  `json:"product_id"`
+	Sku        string `json:"sku"`
+	Name       string `json:"name"`
+	Price      int64  `json:"price"`
+	StockQty   int32  `json:"stock_qty"`
+	WeightGram int32  `json:"weight_gram"`
+	IsDefault  bool   `json:"is_default"`
+	IsActive   bool   `json:"is_active"`
+}
+
+func (q *Queries) UpdateProductVariant(ctx context.Context, arg UpdateProductVariantParams) (UpdateProductVariantRow, error) {
+	row := q.db.QueryRow(ctx, updateProductVariant,
+		arg.ID,
+		arg.ProductID,
+		arg.Name,
+		arg.Price,
+		arg.StockQty,
+		arg.WeightGram,
+	)
+	var i UpdateProductVariantRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProductID,
+		&i.Sku,
+		&i.Name,
+		&i.Price,
+		&i.StockQty,
+		&i.WeightGram,
+		&i.IsDefault,
+		&i.IsActive,
 	)
 	return i, err
 }

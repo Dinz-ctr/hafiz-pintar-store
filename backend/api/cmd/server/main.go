@@ -80,7 +80,7 @@ func main() {
 	log.Println("SQLC database queries initialized successfully")
 
 	// 5. Initialize product layers.
-	productRepo := repository.NewProductRepository(queries)
+	productRepo := repository.NewProductRepository(queries, pool)
 	productService := service.NewProductService(productRepo)
 	productHandler := handler.NewProductHandler(productService)
 
@@ -125,6 +125,8 @@ func main() {
 	// Product endpoints.
 	mux.HandleFunc("GET /api/v1/products", productHandler.List)
 	mux.HandleFunc("GET /api/v1/products/{slug}", productHandler.GetBySlug)
+	mux.HandleFunc("POST /api/v1/products", productHandler.Create)
+	mux.HandleFunc("GET /api/v1/products/{slug}/variants", productHandler.GetVariantsBySlug)
 
 	log.Println("Product routes registered successfully")
 

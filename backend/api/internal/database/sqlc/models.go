@@ -129,3 +129,31 @@ type ProductImage struct {
 	SortOrder int32              `json:"sort_order"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
+
+type ProductVariant struct {
+	ID         int64              `json:"id"`
+	ProductID  int64              `json:"product_id"`
+	Sku        string             `json:"sku"`
+	Name       string             `json:"name"`
+	Price      int64              `json:"price"`
+	StockQty   int32              `json:"stock_qty"`
+	WeightGram int32              `json:"weight_gram"`
+	IsDefault  bool               `json:"is_default"`
+	IsActive   bool               `json:"is_active"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type VariantAttribute struct {
+	ID        int64  `json:"id"`
+	ProductID int64  `json:"product_id"`
+	Name      string `json:"name"`
+}
+
+type VariantAttributeValue struct {
+	ID          int64  `json:"id"`
+	VariantID   int64  `json:"variant_id"`
+	ProductID   int64  `json:"product_id"`
+	AttributeID int64  `json:"attribute_id"`
+	Value       string `json:"value"`
+}

@@ -9,12 +9,44 @@ import (
 )
 
 type Querier interface {
+	// =========================================
+	// LEGACY QUERIES
+	// Jangan digunakan untuk alur CRUD baru.
+	// Akan digantikan dengan transaksi produk
+	// dan varian pada tahap berikutnya.
+	// =========================================
 	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
+	CreateProductBase(ctx context.Context, arg CreateProductBaseParams) (CreateProductBaseRow, error)
+	CreateProductVariant(ctx context.Context, arg CreateProductVariantParams) (CreateProductVariantRow, error)
+	CreateVariantAttribute(ctx context.Context, arg CreateVariantAttributeParams) (VariantAttribute, error)
+	CreateVariantAttributeValue(ctx context.Context, arg CreateVariantAttributeValueParams) (CreateVariantAttributeValueRow, error)
+	DeleteProduct(ctx context.Context, id int64) (int64, error)
+	DeleteProductVariant(ctx context.Context, arg DeleteProductVariantParams) (int64, error)
+	// Mengambil detail produk aktif berdasarkan slug.
 	GetProductBySlug(ctx context.Context, slug string) (GetProductBySlugRow, error)
 	HealthCheck(ctx context.Context) (int32, error)
+	// =========================================
+	// PRODUCT QUERIES
+	// Hafiz Pintar Store
+	// =========================================
+	// Mengambil daftar produk aktif beserta varian default.
 	ListActiveProducts(ctx context.Context, arg ListActiveProductsParams) ([]ListActiveProductsRow, error)
+	// =========================================
+	// PRODUCT IMAGES
+	// =========================================
 	ListProductImages(ctx context.Context, productID int64) ([]ListProductImagesRow, error)
+	ListProductVariants(ctx context.Context, productID int64) ([]ListProductVariantsRow, error)
+	ListVariantAttributes(ctx context.Context, variantID int64) ([]ListVariantAttributesRow, error)
+	// =========================================
+	// PRODUCT MANAGEMENT: SEARCH & FILTER
+	// =========================================
+	SearchActiveProducts(ctx context.Context, arg SearchActiveProductsParams) ([]SearchActiveProductsRow, error)
+	// =========================================
+	// PRODUCT MANAGEMENT: UPDATE & DELETE
+	// =========================================
+	UpdateProductDetails(ctx context.Context, arg UpdateProductDetailsParams) (UpdateProductDetailsRow, error)
 	UpdateProductStock(ctx context.Context, arg UpdateProductStockParams) (UpdateProductStockRow, error)
+	UpdateProductVariant(ctx context.Context, arg UpdateProductVariantParams) (UpdateProductVariantRow, error)
 }
 
 var _ Querier = (*Queries)(nil)
