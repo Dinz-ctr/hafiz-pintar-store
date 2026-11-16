@@ -69,7 +69,7 @@ hafiz-pintar-store/
 - [x] Product repository layer
 - [x] Product service layer
 - [x] Product handler and API routes
-- [ ] Authentication and authorization
+- [x] Authentication and authorization
 - [ ] Shopping cart
 - [ ] Order management
 - [ ] Payment integration
