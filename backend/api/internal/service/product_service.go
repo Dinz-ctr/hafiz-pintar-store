@@ -34,7 +34,6 @@ func (s *ProductService) List(
 	limit int32,
 	offset int32,
 ) ([]sqlc.ListActiveProductsRow, error) {
-
 	if limit < 1 || limit > 100 {
 		limit = 20
 	}
@@ -51,7 +50,6 @@ func (s *ProductService) GetBySlug(
 	ctx context.Context,
 	slug string,
 ) (sqlc.GetProductBySlugRow, error) {
-
 	slug = strings.TrimSpace(slug)
 
 	if slug == "" {
@@ -66,27 +64,22 @@ func (s *ProductService) Create(
 	ctx context.Context,
 	input repository.CreateProductInput,
 ) (sqlc.CreateProductBaseRow, error) {
-
-	// 1. Validasi nama produk.
 	input.Name = strings.TrimSpace(input.Name)
 
 	if input.Name == "" {
 		return sqlc.CreateProductBaseRow{}, ErrInvalidProductName
 	}
 
-	// 2. Validasi slug produk.
 	input.Slug = strings.TrimSpace(strings.ToLower(input.Slug))
 
 	if input.Slug == "" {
 		return sqlc.CreateProductBaseRow{}, ErrInvalidProductSlug
 	}
 
-	// 3. Validasi jumlah varian.
 	if len(input.Variants) == 0 {
 		return sqlc.CreateProductBaseRow{}, ErrInvalidVariants
 	}
 
-	// 4. Validasi SKU dan data setiap varian.
 	usedSKU := make(map[string]bool)
 
 	for i := range input.Variants {
@@ -103,7 +96,6 @@ func (s *ProductService) Create(
 			return sqlc.CreateProductBaseRow{}, ErrInvalidVariant
 		}
 
-		// SKU dibandingkan tanpa membedakan huruf besar/kecil.
 		skuKey := strings.ToUpper(variant.Sku)
 
 		if usedSKU[skuKey] {
@@ -112,7 +104,6 @@ func (s *ProductService) Create(
 
 		usedSKU[skuKey] = true
 
-		// 5. Normalisasi atribut varian.
 		normalizedAttributes := make(map[string]string)
 
 		for name, value := range variant.Attributes {
@@ -129,12 +120,7 @@ func (s *ProductService) Create(
 		variant.Attributes = normalizedAttributes
 	}
 
-	// 6. Repository menangani transaksi PostgreSQL:
-	//    - Membuat identitas produk.
-	//    - Membuat seluruh varian.
-	//    - Membuat atribut varian.
-	//    - Menyimpan nilai atribut.
-	//    - Commit atau rollback transaksi.
+	// Repository menangani transaksi PostgreSQL.
 	return s.repository.Create(ctx, input)
 }
 
@@ -144,21 +130,40 @@ func (s *ProductService) GetVariantsBySlug(
 	ctx context.Context,
 	slug string,
 ) ([]repository.ProductVariantDetail, error) {
-
 	slug = strings.TrimSpace(slug)
 
 	if slug == "" {
 		return nil, ErrInvalidProductSlug
 	}
 
-	// Cari produk berdasarkan slug.
 	product, err := s.repository.GetBySlug(ctx, slug)
 	if err != nil {
 		return nil, err
 	}
 
-	// Ambil varian beserta atributnya.
 	return s.repository.ListVariantsWithAttributes(
+		ctx,
+		product.ID,
+	)
+}
+
+// GetImagesBySlug mengambil seluruh gambar produk berdasarkan slug.
+func (s *ProductService) GetImagesBySlug(
+	ctx context.Context,
+	slug string,
+) ([]sqlc.ProductImage, error) {
+	slug = strings.TrimSpace(slug)
+
+	if slug == "" {
+		return nil, ErrInvalidProductSlug
+	}
+
+	product, err := s.repository.GetBySlug(ctx, slug)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.repository.ListImagesByProductID(
 		ctx,
 		product.ID,
 	)

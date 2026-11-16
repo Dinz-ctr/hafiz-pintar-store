@@ -90,8 +90,10 @@ func (r *ProductRepository) ListActive(
 	return r.queries.ListActiveProducts(
 		ctx,
 		sqlc.ListActiveProductsParams{
-			Limit:  limit,
-			Offset: offset,
+			CategorySlug: "",
+			Search:       "",
+			LimitCount:   limit,
+			OffsetCount:  offset,
 		},
 	)
 }
@@ -102,6 +104,14 @@ func (r *ProductRepository) GetBySlug(
 	slug string,
 ) (sqlc.GetProductBySlugRow, error) {
 	return r.queries.GetProductBySlug(ctx, slug)
+}
+
+// ListImageByProductID mengambil seluruh gambar produk berdasarkan ID produk.
+func (r *ProductRepository) ListImagesByProductID(
+	ctx context.Context,
+	productID int64,
+) ([]sqlc.ProductImage, error) {
+	return r.queries.ListProductImages(ctx, productID)
 }
 
 // Search mencari produk aktif berdasarkan keyword dan kategori.

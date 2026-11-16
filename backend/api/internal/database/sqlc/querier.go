@@ -9,43 +9,418 @@ import (
 )
 
 type Querier interface {
+	// Mengaktifkan kembali akun pelanggan.
+	ActivateCustomer(ctx context.Context, id int64) (int64, error)
 	// =========================================
-	// LEGACY QUERIES
+	// CART ITEMS: CREATE
+	// =========================================
+	AddCartItem(ctx context.Context, arg AddCartItemParams) (CartItem, error)
+	CalculateOrderItemsQuantity(ctx context.Context, orderID int64) (int64, error)
+	CalculateOrderItemsTotal(ctx context.Context, orderID int64) (int64, error)
+	// =========================================
+	// ADMIN: PAYMENT STATISTICS
+	// =========================================
+	// Menghitung total nominal pembayaran berhasil.
+	CalculateTotalSuccessfulPayments(ctx context.Context) (int64, error)
+	// =========================================
+	// CUSTOMER: CANCEL ORDER
+	// =========================================
+	// Pelanggan hanya dapat membatalkan pesanan yang masih pending.
+	CancelCustomerOrder(ctx context.Context, arg CancelCustomerOrderParams) (int64, error)
+	// =========================================
+	// CATEGORY: PARENT VALIDATION
+	// =========================================
+	// Memeriksa apakah kategori induk tersedia.
+	CheckCategoryParentExists(ctx context.Context, id int64) (bool, error)
+	// Memastikan kategori induk bukan dirinya sendiri.
+	CheckCategoryParentExistsForUpdate(ctx context.Context, arg CheckCategoryParentExistsForUpdateParams) (bool, error)
+	// Memeriksa apakah slug sudah digunakan.
+	CheckCategorySlugExists(ctx context.Context, slug string) (bool, error)
+	// Memeriksa slug tanpa menghitung kategori yang sedang diedit.
+	CheckCategorySlugExistsForUpdate(ctx context.Context, arg CheckCategorySlugExistsForUpdateParams) (bool, error)
+	// =========================================
+	// CART: CLEAR
+	// =========================================
+	ClearCart(ctx context.Context, cartID int64) (int64, error)
+	// =========================================
+	// CUSTOMER: SET DEFAULT ADDRESS
+	// =========================================
+	// Menghapus status default dari semua alamat pelanggan.
+	ClearDefaultCustomerAddress(ctx context.Context, customerID int64) error
+	// =========================================
+	// ADMIN: SET PRIMARY IMAGE
+	// =========================================
+	// Menghapus status utama dari seluruh gambar produk.
+	ClearPrimaryProductImages(ctx context.Context, productID int64) error
+	CountAllInventoryMovements(ctx context.Context) (int64, error)
+	// Menghitung seluruh pesanan.
+	CountAllOrders(ctx context.Context) (int64, error)
+	// Menghitung seluruh transaksi pembayaran.
+	CountAllPayments(ctx context.Context) (int64, error)
+	// =========================================
+	// CUSTOMER: ADDRESS STATISTICS
+	// =========================================
+	// Menghitung jumlah alamat pelanggan.
+	CountCustomerAddresses(ctx context.Context, customerID int64) (int64, error)
+	// Menghitung jumlah pesanan pelanggan.
+	CountCustomerOrders(ctx context.Context, customerID int64) (int64, error)
+	// Menghitung jumlah seluruh pelanggan.
+	CountCustomers(ctx context.Context) (int64, error)
+	// =========================================
+	// ORDER ITEM STATISTICS
+	// =========================================
+	CountOrderItems(ctx context.Context, orderID int64) (int64, error)
+	CountOrderItemsByVariant(ctx context.Context, variantID *int64) (int64, error)
+	// Menghitung pesanan berdasarkan status.
+	CountOrdersByStatus(ctx context.Context, status string) (int64, error)
+	// Menghitung transaksi berdasarkan status.
+	CountPaymentsByStatus(ctx context.Context, status string) (int64, error)
+	CountProductInventoryMovements(ctx context.Context, productID int64) (int64, error)
+	// =========================================
+	// CATEGORY: VALIDATION
+	// =========================================
+	CountProductsByCategory(ctx context.Context, categoryID *int64) (int64, error)
+	CountVariantInventoryMovements(ctx context.Context, variantID *int64) (int64, error)
+	CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error)
+	// =========================================
+	// CUSTOMER REGISTRATION
+	// =========================================
+	// Registrasi pelanggan baru.
+	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (CreateCustomerRow, error)
+	// =========================================
+	// CUSTOMER: CREATE ADDRESS
+	// =========================================
+	// Menambahkan alamat baru.
+	CreateCustomerAddress(ctx context.Context, arg CreateCustomerAddressParams) (CustomerAddress, error)
+	// =========================================
+	// INVENTORY MOVEMENT QUERIES
+	// Hafiz Pintar Store
+	// =========================================
+	// =========================================
+	// INVENTORY: CREATE MOVEMENT
+	// =========================================
+	// Mencatat perubahan stok produk atau varian.
+	CreateInventoryMovement(ctx context.Context, arg CreateInventoryMovementParams) (CreateInventoryMovementRow, error)
+	// =========================================
+	// ORDER QUERIES
+	// Hafiz Pintar Store
+	// =========================================
+	// =========================================
+	// CUSTOMER: CREATE ORDER
+	// =========================================
+	// Membuat pesanan baru.
+	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
+	// =========================================
+	// ORDER ITEM QUERIES
+	// Hafiz Pintar Store
+	// =========================================
+	// =========================================
+	// CUSTOMER: CREATE ORDER ITEMS
+	// =========================================
+	CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (CreateOrderItemRow, error)
+	// =========================================
+	// PAYMENT QUERIES
+	// Hafiz Pintar Store
+	// =========================================
+	// =========================================
+	// CUSTOMER: CREATE PAYMENT
+	// =========================================
+	// Membuat catatan pembayaran untuk pesanan.
+	CreatePayment(ctx context.Context, arg CreatePaymentParams) (Payment, error)
+	// =========================================
+	// LEGACY PRODUCT QUERIES
 	// Jangan digunakan untuk alur CRUD baru.
-	// Akan digantikan dengan transaksi produk
-	// dan varian pada tahap berikutnya.
 	// =========================================
 	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
+	// =========================================
+	// PRODUCT CREATION
+	// =========================================
+	// Membuat data dasar produk.
 	CreateProductBase(ctx context.Context, arg CreateProductBaseParams) (CreateProductBaseRow, error)
+	// =========================================
+	// ADMIN: CREATE IMAGE
+	// =========================================
+	// Menambahkan gambar produk.
+	CreateProductImage(ctx context.Context, arg CreateProductImageParams) (ProductImage, error)
+	// Membuat varian produk.
 	CreateProductVariant(ctx context.Context, arg CreateProductVariantParams) (CreateProductVariantRow, error)
+	// Membuat atribut varian.
 	CreateVariantAttribute(ctx context.Context, arg CreateVariantAttributeParams) (VariantAttribute, error)
-	CreateVariantAttributeValue(ctx context.Context, arg CreateVariantAttributeValueParams) (CreateVariantAttributeValueRow, error)
+	// Membuat nilai atribut varian.
+	CreateVariantAttributeValue(ctx context.Context, arg CreateVariantAttributeValueParams) (VariantAttributeValue, error)
+	// =========================================
+	// CUSTOMER ACCOUNT STATUS
+	// =========================================
+	// Menonaktifkan akun pelanggan.
+	DeactivateCustomer(ctx context.Context, id int64) (int64, error)
+	DeleteCategory(ctx context.Context, id int64) (int64, error)
+	// =========================================
+	// CUSTOMER: DELETE ADDRESS
+	// =========================================
+	// Menghapus alamat milik pelanggan.
+	DeleteCustomerAddress(ctx context.Context, arg DeleteCustomerAddressParams) (int64, error)
+	// =========================================
+	// ADMIN: DELETE ORDER ITEM
+	// =========================================
+	DeleteOrderItem(ctx context.Context, arg DeleteOrderItemParams) (int64, error)
+	// Menghapus produk berdasarkan ID.
 	DeleteProduct(ctx context.Context, id int64) (int64, error)
+	// =========================================
+	// ADMIN: DELETE IMAGE
+	// =========================================
+	// Menghapus gambar berdasarkan ID dan produk.
+	DeleteProductImage(ctx context.Context, arg DeleteProductImageParams) (int64, error)
+	// =========================================
+	// PRODUCT MANAGEMENT: DELETE
+	// =========================================
+	// Menghapus varian non-default.
 	DeleteProductVariant(ctx context.Context, arg DeleteProductVariantParams) (int64, error)
+	GetActiveCategoryBySlug(ctx context.Context, slug string) (Category, error)
+	GetCartByCustomerID(ctx context.Context, customerID int64) (Cart, error)
+	// =========================================
+	// CART ITEMS: READ
+	// =========================================
+	GetCartItems(ctx context.Context, cartID int64) ([]GetCartItemsRow, error)
+	GetCategoryByID(ctx context.Context, id int64) (Category, error)
+	// =========================================
+	// CUSTOMER: GET ADDRESS
+	// =========================================
+	// Mengambil alamat berdasarkan ID dan pemiliknya.
+	GetCustomerAddressByID(ctx context.Context, arg GetCustomerAddressByIDParams) (CustomerAddress, error)
+	// =========================================
+	// CUSTOMER QUERIES
+	// Hafiz Pintar Store
+	// =========================================
+	// =========================================
+	// CUSTOMER AUTHENTICATION
+	// =========================================
+	// Mencari pelanggan berdasarkan email.
+	GetCustomerByEmail(ctx context.Context, email *string) (Customer, error)
+	// Login menggunakan email atau nomor HP.
+	GetCustomerByEmailOrPhone(ctx context.Context, email *string) (Customer, error)
+	// =========================================
+	// CUSTOMER PROFILE
+	// =========================================
+	// Mengambil profil pelanggan berdasarkan ID.
+	GetCustomerByID(ctx context.Context, id int64) (GetCustomerByIDRow, error)
+	// Mencari pelanggan berdasarkan nomor HP.
+	GetCustomerByPhone(ctx context.Context, phone *string) (Customer, error)
+	// Memastikan pesanan dimiliki pelanggan yang sedang login.
+	GetCustomerOrderByID(ctx context.Context, arg GetCustomerOrderByIDParams) (Order, error)
+	// Mengambil alamat utama pelanggan.
+	GetDefaultCustomerAddress(ctx context.Context, customerID int64) (CustomerAddress, error)
+	// =========================================
+	// INVENTORY: GET MOVEMENT
+	// =========================================
+	GetInventoryMovementByID(ctx context.Context, id int64) (GetInventoryMovementByIDRow, error)
+	// =========================================
+	// SHOPPING CART QUERIES
+	// =========================================
+	GetOrCreateCart(ctx context.Context, customerID int64) (Cart, error)
+	// =========================================
+	// CUSTOMER: ORDER DETAIL
+	// =========================================
+	// Mengambil detail pesanan berdasarkan ID.
+	GetOrderByID(ctx context.Context, id int64) (Order, error)
+	// Mengambil pesanan berdasarkan nomor pesanan.
+	GetOrderByOrderNumber(ctx context.Context, orderNumber string) (Order, error)
+	// =========================================
+	// CUSTOMER: GET ORDER ITEM
+	// =========================================
+	GetOrderItemByID(ctx context.Context, arg GetOrderItemByIDParams) (GetOrderItemByIDRow, error)
+	// =========================================
+	// CUSTOMER: GET PAYMENT
+	// =========================================
+	// Mengambil detail pembayaran berdasarkan ID.
+	GetPaymentByID(ctx context.Context, id int64) (Payment, error)
+	// Mengambil pembayaran terbaru berdasarkan ID pesanan.
+	GetPaymentByOrderID(ctx context.Context, orderID int64) (Payment, error)
+	// Mencari pembayaran berdasarkan referensi transaksi.
+	GetPaymentByTransactionReference(ctx context.Context, transactionReference *string) (Payment, error)
+	// Mengambil gambar utama produk.
+	GetPrimaryProductImage(ctx context.Context, productID int64) (ProductImage, error)
+	// =========================================
+	// PRODUCT: DETAIL
+	// =========================================
 	// Mengambil detail produk aktif berdasarkan slug.
 	GetProductBySlug(ctx context.Context, slug string) (GetProductBySlugRow, error)
+	// =========================================
+	// INVENTORY: PRODUCT SUMMARY
+	// =========================================
+	GetProductInventorySummary(ctx context.Context, productID int64) (GetProductInventorySummaryRow, error)
+	// =========================================
+	// INVENTORY: VARIANT SUMMARY
+	// =========================================
+	GetVariantInventorySummary(ctx context.Context, variantID *int64) (GetVariantInventorySummaryRow, error)
 	HealthCheck(ctx context.Context) (int32, error)
+	// =========================================
+	// CATEGORY QUERIES
+	// Hafiz Pintar Store
+	// =========================================
+	// =========================================
+	// CATEGORY: PUBLIC CATALOG
+	// =========================================
+	ListActiveCategories(ctx context.Context) ([]Category, error)
+	// =========================================
+	// CATEGORY: CHILD CATEGORIES
+	// =========================================
+	ListActiveChildCategories(ctx context.Context, parentID *int64) ([]Category, error)
 	// =========================================
 	// PRODUCT QUERIES
 	// Hafiz Pintar Store
 	// =========================================
-	// Mengambil daftar produk aktif beserta varian default.
+	// =========================================
+	// PRODUCT CATALOG: LIST, SEARCH & FILTER
+	// =========================================
+	// Mengambil produk aktif dengan filter kategori dan pencarian.
 	ListActiveProducts(ctx context.Context, arg ListActiveProductsParams) ([]ListActiveProductsRow, error)
 	// =========================================
-	// PRODUCT IMAGES
+	// CATEGORY: ADMIN MANAGEMENT
 	// =========================================
-	ListProductImages(ctx context.Context, productID int64) ([]ListProductImagesRow, error)
+	ListAllCategories(ctx context.Context) ([]Category, error)
+	// =========================================
+	// INVENTORY: GLOBAL HISTORY
+	// =========================================
+	ListAllInventoryMovements(ctx context.Context, arg ListAllInventoryMovementsParams) ([]ListAllInventoryMovementsRow, error)
+	// =========================================
+	// ADMIN: ORDER MANAGEMENT
+	// =========================================
+	// Mengambil seluruh pesanan untuk admin.
+	ListAllOrders(ctx context.Context, arg ListAllOrdersParams) ([]Order, error)
+	// =========================================
+	// ADMIN: PAYMENT MANAGEMENT
+	// =========================================
+	// Mengambil seluruh data pembayaran.
+	ListAllPayments(ctx context.Context, arg ListAllPaymentsParams) ([]Payment, error)
+	// =========================================
+	// CUSTOMER ADDRESS QUERIES
+	// Hafiz Pintar Store
+	// =========================================
+	// =========================================
+	// CUSTOMER: LIST ADDRESSES
+	// =========================================
+	// Mengambil semua alamat milik pelanggan.
+	ListCustomerAddresses(ctx context.Context, customerID int64) ([]CustomerAddress, error)
+	// =========================================
+	// CUSTOMER: ORDER HISTORY
+	// =========================================
+	// Mengambil riwayat pesanan pelanggan.
+	ListCustomerOrders(ctx context.Context, arg ListCustomerOrdersParams) ([]Order, error)
+	// =========================================
+	// ADMIN: CUSTOMER MANAGEMENT
+	// =========================================
+	// Mengambil daftar pelanggan untuk admin.
+	ListCustomers(ctx context.Context, arg ListCustomersParams) ([]ListCustomersRow, error)
+	// =========================================
+	// INVENTORY: FILTER BY MOVEMENT TYPE
+	// =========================================
+	ListInventoryMovementsByType(ctx context.Context, arg ListInventoryMovementsByTypeParams) ([]ListInventoryMovementsByTypeRow, error)
+	// =========================================
+	// CUSTOMER: LIST ORDER ITEMS
+	// =========================================
+	ListOrderItems(ctx context.Context, orderID int64) ([]ListOrderItemsRow, error)
+	// =========================================
+	// ORDER ITEM: VARIANT HISTORY
+	// =========================================
+	ListOrderItemsByVariant(ctx context.Context, arg ListOrderItemsByVariantParams) ([]ListOrderItemsByVariantRow, error)
+	// Mengambil pesanan berdasarkan status.
+	ListOrdersByStatus(ctx context.Context, arg ListOrdersByStatusParams) ([]Order, error)
+	// Mengambil pembayaran berdasarkan status.
+	ListPaymentsByStatus(ctx context.Context, arg ListPaymentsByStatusParams) ([]Payment, error)
+	// =========================================
+	// PRODUCT IMAGE QUERIES
+	// Hafiz Pintar Store
+	// =========================================
+	// =========================================
+	// PUBLIC: PRODUCT IMAGES
+	// =========================================
+	// Mengambil seluruh gambar produk.
+	ListProductImages(ctx context.Context, productID int64) ([]ProductImage, error)
+	// =========================================
+	// INVENTORY: PRODUCT HISTORY
+	// =========================================
+	ListProductInventoryMovements(ctx context.Context, arg ListProductInventoryMovementsParams) ([]ListProductInventoryMovementsRow, error)
+	// =========================================
+	// PRODUCT VARIANTS
+	// =========================================
+	// Mengambil seluruh varian aktif dari produk.
 	ListProductVariants(ctx context.Context, productID int64) ([]ListProductVariantsRow, error)
+	// Mengambil atribut dari varian tertentu.
 	ListVariantAttributes(ctx context.Context, variantID int64) ([]ListVariantAttributesRow, error)
 	// =========================================
-	// PRODUCT MANAGEMENT: SEARCH & FILTER
+	// INVENTORY: VARIANT HISTORY
 	// =========================================
+	ListVariantInventoryMovements(ctx context.Context, arg ListVariantInventoryMovementsParams) ([]ListVariantInventoryMovementsRow, error)
+	// =========================================
+	// CART ITEMS: DELETE
+	// =========================================
+	RemoveCartItem(ctx context.Context, arg RemoveCartItemParams) (int64, error)
+	// =========================================
+	// PRODUCT SEARCH: CATEGORY ID
+	// =========================================
+	// Pencarian produk berdasarkan keyword dan ID kategori.
 	SearchActiveProducts(ctx context.Context, arg SearchActiveProductsParams) ([]SearchActiveProductsRow, error)
+	// Mencari pelanggan berdasarkan nama, email, atau nomor HP.
+	SearchCustomers(ctx context.Context, arg SearchCustomersParams) ([]SearchCustomersRow, error)
 	// =========================================
-	// PRODUCT MANAGEMENT: UPDATE & DELETE
+	// ADMIN: SEARCH ORDERS
 	// =========================================
+	// Mencari pesanan berdasarkan nomor pesanan,
+	// nama penerima, atau nomor telepon.
+	SearchOrders(ctx context.Context, arg SearchOrdersParams) ([]Order, error)
+	// Menjadikan alamat tertentu sebagai alamat utama.
+	SetDefaultCustomerAddress(ctx context.Context, arg SetDefaultCustomerAddressParams) (int64, error)
+	// Menentukan gambar utama produk.
+	SetPrimaryProductImage(ctx context.Context, arg SetPrimaryProductImageParams) (int64, error)
+	// =========================================
+	// CART ITEMS: UPDATE
+	// =========================================
+	UpdateCartItemQuantity(ctx context.Context, arg UpdateCartItemQuantityParams) (CartItem, error)
+	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error)
+	// =========================================
+	// CUSTOMER: UPDATE ADDRESS
+	// =========================================
+	// Memperbarui alamat milik pelanggan.
+	UpdateCustomerAddress(ctx context.Context, arg UpdateCustomerAddressParams) (CustomerAddress, error)
+	// =========================================
+	// CUSTOMER PASSWORD
+	// =========================================
+	// Memperbarui password hash pelanggan.
+	UpdateCustomerPassword(ctx context.Context, arg UpdateCustomerPasswordParams) (int64, error)
+	// Memperbarui profil pelanggan.
+	UpdateCustomerProfile(ctx context.Context, arg UpdateCustomerProfileParams) (UpdateCustomerProfileRow, error)
+	// =========================================
+	// ADMIN: UPDATE ORDER ITEM
+	// =========================================
+	UpdateOrderItemQuantity(ctx context.Context, arg UpdateOrderItemQuantityParams) (UpdateOrderItemQuantityRow, error)
+	// =========================================
+	// ADMIN: UPDATE ORDER STATUS
+	// =========================================
+	// Memperbarui status pesanan.
+	UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) (Order, error)
+	// =========================================
+	// PAYMENT STATUS
+	// =========================================
+	// Memperbarui status pembayaran.
+	UpdatePaymentStatus(ctx context.Context, arg UpdatePaymentStatusParams) (Payment, error)
+	// =========================================
+	// PAYMENT TRANSACTION
+	// =========================================
+	// Memperbarui referensi transaksi dari payment gateway.
+	UpdatePaymentTransactionReference(ctx context.Context, arg UpdatePaymentTransactionReferenceParams) (Payment, error)
+	// =========================================
+	// PRODUCT MANAGEMENT: UPDATE
+	// =========================================
+	// Memperbarui informasi dasar produk.
 	UpdateProductDetails(ctx context.Context, arg UpdateProductDetailsParams) (UpdateProductDetailsRow, error)
+	// =========================================
+	// ADMIN: UPDATE IMAGE
+	// =========================================
+	// Memperbarui informasi gambar.
+	UpdateProductImage(ctx context.Context, arg UpdateProductImageParams) (ProductImage, error)
+	// LEGACY: stok baru dikelola melalui product_variants.
 	UpdateProductStock(ctx context.Context, arg UpdateProductStockParams) (UpdateProductStockRow, error)
+	// Memperbarui informasi dan stok varian.
 	UpdateProductVariant(ctx context.Context, arg UpdateProductVariantParams) (UpdateProductVariantRow, error)
 }
 

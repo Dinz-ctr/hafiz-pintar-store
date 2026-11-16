@@ -8,6 +8,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Cart struct {
+	ID         int64              `json:"id"`
+	CustomerID int64              `json:"customer_id"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CartItem struct {
+	ID        int64              `json:"id"`
+	CartID    int64              `json:"cart_id"`
+	ProductID int64              `json:"product_id"`
+	VariantID int64              `json:"variant_id"`
+	Quantity  int32              `json:"quantity"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Category struct {
 	ID          int64              `json:"id"`
 	ParentID    *int64             `json:"parent_id"`
@@ -58,6 +75,7 @@ type InventoryMovement struct {
 	ReferenceID   *int64             `json:"reference_id"`
 	Note          *string            `json:"note"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	VariantID     *int64             `json:"variant_id"`
 }
 
 type Order struct {
@@ -90,6 +108,7 @@ type OrderItem struct {
 	UnitPrice   int64              `json:"unit_price"`
 	Subtotal    int64              `json:"subtotal"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	VariantID   *int64             `json:"variant_id"`
 }
 
 type Payment struct {

@@ -255,7 +255,6 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	product, err := h.service.Create(r.Context(), input)
 
 	if err != nil {
-		// Validasi dari service dan repository.
 		switch {
 		case errors.Is(err, service.ErrInvalidProductName),
 			errors.Is(err, service.ErrInvalidProductSlug),
@@ -271,7 +270,6 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Constraint PostgreSQL.
 		var pgErr *pgconn.PgError
 
 		if errors.As(err, &pgErr) {
@@ -305,5 +303,50 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	writeProductJSON(w, http.StatusCreated, map[string]any{
 		"message": "product created successfully",
 		"data":    product,
+	})
+}
+
+// =========================================
+// GET /api/v1/products/{slug}/images
+// GET PRODUCT IMAGES
+// =========================================
+
+func (h *ProductHandler) GetImagesBySlug(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	slug := r.PathValue("slug")
+
+	images, err := h.service.GetImagesBySlug(
+		r.Context(),
+		slug,
+	)
+
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidProductSlug) {
+			writeProductJSON(w, http.StatusBadRequest, map[string]string{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeProductJSON(w, http.StatusNotFound, map[string]string{
+				"error": "product not found",
+			})
+			return
+		}
+
+		writeProductJSON(w, http.StatusInternalServerError, map[string]string{
+			"error": "failed to retrieve product images",
+		})
+		return
+	}
+
+	writeProductJSON(w, http.StatusOK, map[string]any{
+		"data": images,
+		"meta": map[string]int{
+			"total": len(images),
+		},
 	})
 }

@@ -5,8 +5,12 @@
 -- =========================================
 
 
+-- =========================================
+-- PRODUCT CATALOG: LIST, SEARCH & FILTER
+-- =========================================
+
 -- name: ListActiveProducts :many
--- Mengambil daftar produk aktif beserta varian default.
+-- Mengambil produk aktif dengan filter kategori dan pencarian.
 SELECT
     p.id,
     p.name,
@@ -29,9 +33,24 @@ JOIN product_variants v
 LEFT JOIN categories c
     ON c.id = p.category_id
 WHERE p.status = 'active'
-ORDER BY p.created_at DESC
-LIMIT $1 OFFSET $2;
+    AND (
+        sqlc.arg(category_slug)::text = ''
+        OR c.slug = sqlc.arg(category_slug)::text
+    )
+    AND (
+        sqlc.arg(search)::text = ''
+        OR p.name ILIKE '%' || sqlc.arg(search)::text || '%'
+        OR COALESCE(p.description, '') ILIKE
+            '%' || sqlc.arg(search)::text || '%'
+    )
+ORDER BY p.created_at DESC, p.id DESC
+LIMIT sqlc.arg(limit_count)::integer
+OFFSET sqlc.arg(offset_count)::integer;
 
+
+-- =========================================
+-- PRODUCT: DETAIL
+-- =========================================
 
 -- name: GetProductBySlug :one
 -- Mengambil detail produk aktif berdasarkan slug.
@@ -62,12 +81,9 @@ LIMIT 1;
 
 
 -- =========================================
--- LEGACY QUERIES
+-- LEGACY PRODUCT QUERIES
 -- Jangan digunakan untuk alur CRUD baru.
--- Akan digantikan dengan transaksi produk
--- dan varian pada tahap berikutnya.
 -- =========================================
-
 
 -- name: CreateProduct :one
 INSERT INTO products (
@@ -85,6 +101,7 @@ RETURNING *;
 
 
 -- name: UpdateProductStock :one
+-- LEGACY: stok baru dikelola melalui product_variants.
 UPDATE products
 SET
     stock_qty = $2,
@@ -94,27 +111,11 @@ RETURNING id, sku, name, stock_qty, updated_at;
 
 
 -- =========================================
--- PRODUCT IMAGES
+-- PRODUCT CREATION
 -- =========================================
 
-
--- name: ListProductImages :many
-SELECT
-    id,
-    product_id,
-    image_url,
-    alt_text,
-    is_primary,
-    sort_order
-FROM product_images
-WHERE product_id = $1
-ORDER BY
-    is_primary DESC,
-    sort_order ASC,
-    id ASC;
-
-
 -- name: CreateProductBase :one
+-- Membuat data dasar produk.
 INSERT INTO products (
     category_id,
     sku,
@@ -131,6 +132,7 @@ RETURNING id, name, slug;
 
 
 -- name: CreateProductVariant :one
+-- Membuat varian produk.
 INSERT INTO product_variants (
     product_id,
     sku,
@@ -142,10 +144,20 @@ INSERT INTO product_variants (
     is_active
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
-RETURNING id, product_id, sku, name;
+RETURNING
+    id,
+    product_id,
+    sku,
+    name,
+    price,
+    stock_qty,
+    weight_gram,
+    is_default,
+    is_active;
 
 
 -- name: CreateVariantAttribute :one
+-- Membuat atribut varian.
 INSERT INTO variant_attributes (
     product_id,
     name
@@ -155,6 +167,7 @@ RETURNING id, product_id, name;
 
 
 -- name: CreateVariantAttributeValue :one
+-- Membuat nilai atribut varian.
 INSERT INTO variant_attribute_values (
     variant_id,
     product_id,
@@ -162,9 +175,20 @@ INSERT INTO variant_attribute_values (
     value
 )
 VALUES ($1, $2, $3, $4)
-RETURNING id, variant_id, attribute_id, value;
+RETURNING
+    id,
+    variant_id,
+    product_id,
+    attribute_id,
+    value;
+
+
+-- =========================================
+-- PRODUCT VARIANTS
+-- =========================================
 
 -- name: ListProductVariants :many
+-- Mengambil seluruh varian aktif dari produk.
 SELECT
     id,
     product_id,
@@ -177,11 +201,12 @@ SELECT
     is_active
 FROM product_variants
 WHERE product_id = $1
-  AND is_active = TRUE
+    AND is_active = TRUE
 ORDER BY is_default DESC, id ASC;
 
 
 -- name: ListVariantAttributes :many
+-- Mengambil atribut dari varian tertentu.
 SELECT
     va.id AS attribute_id,
     va.name AS attribute_name,
@@ -189,15 +214,17 @@ SELECT
 FROM variant_attribute_values vav
 JOIN variant_attributes va
     ON va.id = vav.attribute_id
-   AND va.product_id = vav.product_id
+    AND va.product_id = vav.product_id
 WHERE vav.variant_id = $1
 ORDER BY va.name ASC;
 
+
 -- =========================================
--- PRODUCT MANAGEMENT: UPDATE & DELETE
+-- PRODUCT MANAGEMENT: UPDATE
 -- =========================================
 
 -- name: UpdateProductDetails :one
+-- Memperbarui informasi dasar produk.
 UPDATE products
 SET
     name = $2,
@@ -215,6 +242,7 @@ RETURNING
 
 
 -- name: UpdateProductVariant :one
+-- Memperbarui informasi dan stok varian.
 UPDATE product_variants
 SET
     name = $3,
@@ -223,7 +251,7 @@ SET
     weight_gram = $6,
     updated_at = NOW()
 WHERE id = $1
-  AND product_id = $2
+    AND product_id = $2
 RETURNING
     id,
     product_id,
@@ -236,23 +264,30 @@ RETURNING
     is_active;
 
 
+-- =========================================
+-- PRODUCT MANAGEMENT: DELETE
+-- =========================================
+
 -- name: DeleteProductVariant :execrows
+-- Menghapus varian non-default.
 DELETE FROM product_variants
 WHERE id = $1
-  AND product_id = $2
-  AND is_default = FALSE;
+    AND product_id = $2
+    AND is_default = FALSE;
 
 
 -- name: DeleteProduct :execrows
+-- Menghapus produk berdasarkan ID.
 DELETE FROM products
 WHERE id = $1;
 
 
 -- =========================================
--- PRODUCT MANAGEMENT: SEARCH & FILTER
+-- PRODUCT SEARCH: CATEGORY ID
 -- =========================================
 
 -- name: SearchActiveProducts :many
+-- Pencarian produk berdasarkan keyword dan ID kategori.
 SELECT
     p.id,
     p.name,
@@ -275,16 +310,15 @@ JOIN product_variants v
 LEFT JOIN categories c
     ON c.id = p.category_id
 WHERE p.status = 'active'
-  AND (
-      p.name ILIKE '%' || sqlc.arg(keyword)::text || '%'
-      OR p.description ILIKE '%' || sqlc.arg(keyword)::text || '%'
-  )
-  AND (
-      sqlc.narg(category_id)::bigint IS NULL
-      OR p.category_id = sqlc.narg(category_id)::bigint
-  )
-ORDER BY p.created_at DESC
+    AND (
+        p.name ILIKE '%' || sqlc.arg(keyword)::text || '%'
+        OR COALESCE(p.description, '') ILIKE
+            '%' || sqlc.arg(keyword)::text || '%'
+    )
+    AND (
+        sqlc.narg(category_id)::bigint IS NULL
+        OR p.category_id = sqlc.narg(category_id)::bigint
+    )
+ORDER BY p.created_at DESC, p.id DESC
 LIMIT sqlc.arg(limit_count)::integer
 OFFSET sqlc.arg(offset_count)::integer;
-
-
