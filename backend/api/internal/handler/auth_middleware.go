@@ -102,3 +102,88 @@ func CustomerIDFromContext(ctx context.Context) (int64, bool) {
 	customerID, ok := ctx.Value(customerIDContextKey).(int64)
 	return customerID, ok
 }
+
+// =========================================
+// ADMIN JWT AUTHENTICATION
+// =========================================
+
+const adminIDContextKey contextKey = "admin_id"
+
+// AdminJWTAuth hanya menerima JWT yang diterbitkan khusus untuk admin.
+func AdminJWTAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(
+		w http.ResponseWriter,
+		r *http.Request,
+	) {
+		secret := os.Getenv("ADMIN_JWT_SECRET")
+
+		if len(secret) < 32 {
+			customerError(
+				w,
+				http.StatusInternalServerError,
+				"admin authentication service is not configured",
+			)
+			return
+		}
+
+		authHeader := r.Header.Get("Authorization")
+		parts := strings.Fields(authHeader)
+
+		if len(parts) != 2 ||
+			!strings.EqualFold(parts[0], "Bearer") {
+			customerError(
+				w,
+				http.StatusUnauthorized,
+				"admin authorization token is required",
+			)
+			return
+		}
+
+		claims := &jwt.RegisteredClaims{}
+
+		token, err := jwt.ParseWithClaims(
+			parts[1],
+			claims,
+			func(token *jwt.Token) (any, error) {
+				return []byte(secret), nil
+			},
+			jwt.WithValidMethods([]string{
+				jwt.SigningMethodHS256.Alg(),
+			}),
+			jwt.WithIssuer("hafiz-pintar-admin"),
+		)
+
+		if err != nil || token == nil || !token.Valid {
+			customerError(
+				w,
+				http.StatusUnauthorized,
+				"invalid or expired admin access token",
+			)
+			return
+		}
+
+		adminID, err := strconv.ParseInt(claims.Subject, 10, 64)
+		if err != nil || adminID <= 0 {
+			customerError(
+				w,
+				http.StatusUnauthorized,
+				"invalid admin token subject",
+			)
+			return
+		}
+
+		ctx := context.WithValue(
+			r.Context(),
+			adminIDContextKey,
+			adminID,
+		)
+
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// AdminIDFromContext mengambil admin ID dari JWT context.
+func AdminIDFromContext(ctx context.Context) (int64, bool) {
+	adminID, ok := ctx.Value(adminIDContextKey).(int64)
+	return adminID, ok
+}
