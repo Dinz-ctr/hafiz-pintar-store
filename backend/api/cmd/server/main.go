@@ -229,16 +229,79 @@ func main() {
 	log.Println("Admin product layers initialized successfully")
 
 	// =========================================
-	// 15. INITIALIZE HTTP ROUTER
+	// 15. INITIALIZE ADMIN CATEGORY LAYERS
+	// =========================================
+
+	adminCategoryRepo := repository.NewAdminCategoryRepository(pool)
+
+	adminCategoryService := service.NewAdminCategoryService(
+		adminCategoryRepo,
+	)
+
+	adminCategoryHandler := handler.NewAdminCategoryHandler(
+		adminCategoryService,
+	)
+
+	log.Println("Admin category layers initialized successfully")
+
+	// =========================================
+	// 16. INITIALIZE ADMIN CUSTOMER LAYERS
+	// =========================================
+
+	adminCustomerRepo := repository.NewAdminCustomerRepository(pool)
+
+	adminCustomerService := service.NewAdminCustomerService(
+		adminCustomerRepo,
+	)
+
+	adminCustomerHandler := handler.NewAdminCustomerHandler(
+		adminCustomerService,
+	)
+
+	log.Println("Admin customer layers initialized successfully")
+
+	// =========================================
+	// INITIALIZE ADMIN ORDER LAYERS
+	// =========================================
+
+	adminOrderRepo := repository.NewAdminOrderRepository(pool)
+
+	adminOrderService := service.NewAdminOrderService(
+		adminOrderRepo,
+	)
+
+	adminOrderHandler := handler.NewAdminOrderHandler(
+		adminOrderService,
+	)
+
+	log.Println("Admin order layers initialized successfully")
+
+	// =========================================
+	// ADMIN PAYMENT LAYERS
+	// =========================================
+
+	adminPaymentRepo := repository.NewAdminPaymentRepository(pool)
+
+	adminPaymentService := service.NewAdminPaymentService(
+		adminPaymentRepo,
+	)
+
+	adminPaymentHandler := handler.NewAdminPaymentHandler(
+		adminPaymentService,
+	)
+
+	log.Println("Admin payment layers initialized successfully")
+
+	// =========================================
+	// 17. INITIALIZE HTTP ROUTER
 	// =========================================
 
 	mux := http.NewServeMux()
 
 	// =========================================
-	// 16. HEALTH CHECK ENDPOINTS
+	// 18. HEALTH CHECK ENDPOINTS
 	// =========================================
 
-	// GET /health
 	mux.HandleFunc("GET /health", func(
 		w http.ResponseWriter,
 		r *http.Request,
@@ -250,7 +313,6 @@ func main() {
 		})
 	})
 
-	// GET /ready
 	mux.HandleFunc("GET /ready", func(
 		w http.ResponseWriter,
 		r *http.Request,
@@ -281,316 +343,354 @@ func main() {
 	})
 
 	// =========================================
-	// 17. PUBLIC PRODUCT ENDPOINTS
+	// 19. PUBLIC PRODUCT ENDPOINTS
 	// =========================================
 
-	// GET /api/v1/products
-	mux.HandleFunc(
-		"GET /api/v1/products",
-		productHandler.List,
-	)
-
-	// GET /api/v1/products/{slug}
-	mux.HandleFunc(
-		"GET /api/v1/products/{slug}",
-		productHandler.GetBySlug,
-	)
-
-	// GET /api/v1/products/{slug}/variants
-	mux.HandleFunc(
-		"GET /api/v1/products/{slug}/variants",
-		productHandler.GetVariantsBySlug,
-	)
-
-	// GET /api/v1/products/{slug}/images
-	mux.HandleFunc(
-		"GET /api/v1/products/{slug}/images",
-		productHandler.GetImagesBySlug,
-	)
+	mux.HandleFunc("GET /api/v1/products", productHandler.List)
+	mux.HandleFunc("GET /api/v1/products/{slug}", productHandler.GetBySlug)
+	mux.HandleFunc("GET /api/v1/products/{slug}/variants", productHandler.GetVariantsBySlug)
+	mux.HandleFunc("GET /api/v1/products/{slug}/images", productHandler.GetImagesBySlug)
 
 	log.Println("Public product routes registered successfully")
 
 	// =========================================
-	// 18. CATEGORY ENDPOINTS
+	// 20. PUBLIC CATEGORY ENDPOINTS
 	// =========================================
 
-	mux.HandleFunc(
-		"GET /api/v1/categories",
-		categoryHandler.List,
-	)
-
-	mux.HandleFunc(
-		"GET /api/v1/categories/{slug}",
-		categoryHandler.GetBySlug,
-	)
+	mux.HandleFunc("GET /api/v1/categories", categoryHandler.List)
+	mux.HandleFunc("GET /api/v1/categories/{slug}", categoryHandler.GetBySlug)
 
 	log.Println("Category routes registered successfully")
 
 	// =========================================
-	// 19. CUSTOMER AUTHENTICATION ENDPOINTS
+	// 21. CUSTOMER AUTHENTICATION ENDPOINTS
 	// =========================================
 
-	mux.HandleFunc(
-		"POST /api/v1/auth/register",
-		customerHandler.Register,
-	)
-
-	mux.HandleFunc(
-		"POST /api/v1/auth/login",
-		customerHandler.Login,
-	)
+	mux.HandleFunc("POST /api/v1/auth/register", customerHandler.Register)
+	mux.HandleFunc("POST /api/v1/auth/login", customerHandler.Login)
 
 	log.Println("Customer authentication routes registered successfully")
 
 	// =========================================
-	// 20. CUSTOMER PROFILE ENDPOINTS
+	// 22. CUSTOMER PROFILE ENDPOINTS
 	// =========================================
 
 	mux.Handle(
 		"GET /api/v1/customers/me",
-		handler.JWTAuth(
-			http.HandlerFunc(customerHandler.Me),
-		),
+		handler.JWTAuth(http.HandlerFunc(customerHandler.Me)),
 	)
 
 	log.Println("Customer profile routes registered successfully")
 
 	// =========================================
-	// 21. CUSTOMER ADDRESS ENDPOINTS
+	// 23. CUSTOMER ADDRESS ENDPOINTS
 	// =========================================
 
 	mux.Handle(
 		"GET /api/v1/customer-addresses",
-		handler.JWTAuth(
-			http.HandlerFunc(customerAddressHandler.List),
-		),
+		handler.JWTAuth(http.HandlerFunc(customerAddressHandler.List)),
 	)
 
 	mux.Handle(
 		"GET /api/v1/customer-addresses/{id}",
-		handler.JWTAuth(
-			http.HandlerFunc(customerAddressHandler.GetByID),
-		),
+		handler.JWTAuth(http.HandlerFunc(customerAddressHandler.GetByID)),
 	)
 
 	mux.Handle(
 		"POST /api/v1/customer-addresses",
-		handler.JWTAuth(
-			http.HandlerFunc(customerAddressHandler.Create),
-		),
+		handler.JWTAuth(http.HandlerFunc(customerAddressHandler.Create)),
 	)
 
 	mux.Handle(
 		"PUT /api/v1/customer-addresses/{id}",
-		handler.JWTAuth(
-			http.HandlerFunc(customerAddressHandler.Update),
-		),
+		handler.JWTAuth(http.HandlerFunc(customerAddressHandler.Update)),
 	)
 
 	mux.Handle(
 		"DELETE /api/v1/customer-addresses/{id}",
-		handler.JWTAuth(
-			http.HandlerFunc(customerAddressHandler.Delete),
-		),
+		handler.JWTAuth(http.HandlerFunc(customerAddressHandler.Delete)),
 	)
 
 	mux.Handle(
 		"PATCH /api/v1/customer-addresses/{id}/default",
-		handler.JWTAuth(
-			http.HandlerFunc(customerAddressHandler.SetDefault),
-		),
+		handler.JWTAuth(http.HandlerFunc(customerAddressHandler.SetDefault)),
 	)
 
 	log.Println("Customer address routes registered successfully")
 
 	// =========================================
-	// 22. SHOPPING CART ENDPOINTS
+	// 24. SHOPPING CART ENDPOINTS
 	// =========================================
 
 	mux.Handle(
 		"GET /api/v1/cart",
-		handler.JWTAuth(
-			http.HandlerFunc(cartHandler.Get),
-		),
+		handler.JWTAuth(http.HandlerFunc(cartHandler.Get)),
 	)
 
 	mux.Handle(
 		"POST /api/v1/cart/items",
-		handler.JWTAuth(
-			http.HandlerFunc(cartHandler.AddItem),
-		),
+		handler.JWTAuth(http.HandlerFunc(cartHandler.AddItem)),
 	)
 
 	mux.Handle(
 		"PATCH /api/v1/cart/items/{id}",
-		handler.JWTAuth(
-			http.HandlerFunc(cartHandler.UpdateQuantity),
-		),
+		handler.JWTAuth(http.HandlerFunc(cartHandler.UpdateQuantity)),
 	)
 
 	mux.Handle(
 		"DELETE /api/v1/cart/items/{id}",
-		handler.JWTAuth(
-			http.HandlerFunc(cartHandler.RemoveItem),
-		),
+		handler.JWTAuth(http.HandlerFunc(cartHandler.RemoveItem)),
 	)
 
 	mux.Handle(
 		"DELETE /api/v1/cart/items",
-		handler.JWTAuth(
-			http.HandlerFunc(cartHandler.Clear),
-		),
+		handler.JWTAuth(http.HandlerFunc(cartHandler.Clear)),
 	)
 
 	log.Println("Cart routes registered successfully")
 
 	// =========================================
-	// 23. ORDER ENDPOINTS
+	// 25. ORDER ENDPOINTS
 	// =========================================
 
 	mux.Handle(
 		"POST /api/v1/orders/checkout",
-		handler.JWTAuth(
-			http.HandlerFunc(orderHandler.Checkout),
-		),
+		handler.JWTAuth(http.HandlerFunc(orderHandler.Checkout)),
 	)
 
 	mux.Handle(
 		"GET /api/v1/orders",
-		handler.JWTAuth(
-			http.HandlerFunc(orderHandler.GetCustomerOrders),
-		),
+		handler.JWTAuth(http.HandlerFunc(orderHandler.GetCustomerOrders)),
 	)
 
 	mux.Handle(
 		"GET /api/v1/orders/{id}",
-		handler.JWTAuth(
-			http.HandlerFunc(orderHandler.GetCustomerOrderDetail),
-		),
+		handler.JWTAuth(http.HandlerFunc(orderHandler.GetCustomerOrderDetail)),
 	)
 
 	log.Println("Order routes registered successfully")
 
 	// =========================================
-	// 24. PAYMENT ENDPOINTS
+	// 26. PAYMENT ENDPOINTS
 	// =========================================
 
 	mux.Handle(
 		"POST /api/v1/payments",
+		handler.JWTAuth(http.HandlerFunc(paymentHandler.Create)),
+	)
+
+	mux.Handle(
+		"GET /api/v1/payments/{id}",
 		handler.JWTAuth(
-			http.HandlerFunc(paymentHandler.Create),
+			http.HandlerFunc(paymentHandler.GetByID),
 		),
 	)
 
 	log.Println("Payment routes registered successfully")
 
 	// =========================================
-	// 25. ADMIN AUTHENTICATION ENDPOINTS
+	// 27. ADMIN AUTHENTICATION ENDPOINTS
 	// =========================================
 
-	// POST /api/v1/admin/auth/login
-	mux.HandleFunc(
-		"POST /api/v1/admin/auth/login",
-		adminHandler.Login,
-	)
+	mux.HandleFunc("POST /api/v1/admin/auth/login", adminHandler.Login)
 
-	// GET /api/v1/admin/me
 	mux.Handle(
 		"GET /api/v1/admin/me",
-		handler.AdminJWTAuth(
-			http.HandlerFunc(adminHandler.Me),
-		),
+		handler.AdminJWTAuth(http.HandlerFunc(adminHandler.Me)),
 	)
 
 	log.Println("Admin authentication routes registered successfully")
 
 	// =========================================
-	// 26. ADMIN DASHBOARD ENDPOINTS
+	// 28. ADMIN DASHBOARD ENDPOINTS
 	// =========================================
 
-	// GET /api/v1/admin/dashboard
 	mux.Handle(
 		"GET /api/v1/admin/dashboard",
-		handler.AdminJWTAuth(
-			http.HandlerFunc(adminDashboardHandler.GetDashboard),
-		),
+		handler.AdminJWTAuth(http.HandlerFunc(adminDashboardHandler.GetDashboard)),
 	)
 
 	log.Println("Admin dashboard routes registered successfully")
 
 	// =========================================
-	// 27. ADMIN PRODUCT ENDPOINTS
+	// 29. ADMIN PRODUCT ENDPOINTS
 	// =========================================
 
-	// GET /api/v1/admin/products
 	mux.Handle(
 		"GET /api/v1/admin/products",
-		handler.AdminJWTAuth(
-			http.HandlerFunc(adminProductHandler.List),
-		),
+		handler.AdminJWTAuth(http.HandlerFunc(adminProductHandler.List)),
 	)
 
-	// GET /api/v1/admin/products/{id}
 	mux.Handle(
 		"GET /api/v1/admin/products/{id}",
-		handler.AdminJWTAuth(
-			http.HandlerFunc(adminProductHandler.GetByID),
-		),
+		handler.AdminJWTAuth(http.HandlerFunc(adminProductHandler.GetByID)),
 	)
 
-	// POST /api/v1/admin/products
 	mux.Handle(
 		"POST /api/v1/admin/products",
-		handler.AdminJWTAuth(
-			http.HandlerFunc(adminProductHandler.Create),
-		),
+		handler.AdminJWTAuth(http.HandlerFunc(adminProductHandler.Create)),
 	)
 
-	// PUT /api/v1/admin/products/{id}
 	mux.Handle(
 		"PUT /api/v1/admin/products/{id}",
-		handler.AdminJWTAuth(
-			http.HandlerFunc(adminProductHandler.UpdateDetails),
-		),
+		handler.AdminJWTAuth(http.HandlerFunc(adminProductHandler.UpdateDetails)),
 	)
 
-	// PATCH /api/v1/admin/products/{id}/status
 	mux.Handle(
 		"PATCH /api/v1/admin/products/{id}/status",
-		handler.AdminJWTAuth(
-			http.HandlerFunc(adminProductHandler.UpdateStatus),
-		),
+		handler.AdminJWTAuth(http.HandlerFunc(adminProductHandler.UpdateStatus)),
 	)
 
-	// DELETE /api/v1/admin/products/{id}
 	// Archive product, bukan hard delete.
 	mux.Handle(
 		"DELETE /api/v1/admin/products/{id}",
-		handler.AdminJWTAuth(
-			http.HandlerFunc(adminProductHandler.Archive),
-		),
+		handler.AdminJWTAuth(http.HandlerFunc(adminProductHandler.Archive)),
 	)
 
-	// PUT /api/v1/admin/products/{id}/variants/{variantId}
 	mux.Handle(
 		"PUT /api/v1/admin/products/{id}/variants/{variantId}",
-		handler.AdminJWTAuth(
-			http.HandlerFunc(adminProductHandler.UpdateVariant),
-		),
+		handler.AdminJWTAuth(http.HandlerFunc(adminProductHandler.UpdateVariant)),
 	)
 
-	// DELETE /api/v1/admin/products/{id}/variants/{variantId}
 	mux.Handle(
 		"DELETE /api/v1/admin/products/{id}/variants/{variantId}",
-		handler.AdminJWTAuth(
-			http.HandlerFunc(adminProductHandler.DeleteVariant),
-		),
+		handler.AdminJWTAuth(http.HandlerFunc(adminProductHandler.DeleteVariant)),
 	)
 
 	log.Println("Admin product routes registered successfully")
 
 	// =========================================
-	// 28. INITIALIZE HTTP SERVER
+	// 30. ADMIN CATEGORY ENDPOINTS
+	// =========================================
+
+	mux.Handle(
+		"GET /api/v1/admin/categories",
+		handler.AdminJWTAuth(http.HandlerFunc(adminCategoryHandler.List)),
+	)
+
+	mux.Handle(
+		"GET /api/v1/admin/categories/{id}",
+		handler.AdminJWTAuth(http.HandlerFunc(adminCategoryHandler.GetByID)),
+	)
+
+	mux.Handle(
+		"POST /api/v1/admin/categories",
+		handler.AdminJWTAuth(http.HandlerFunc(adminCategoryHandler.Create)),
+	)
+
+	mux.Handle(
+		"PUT /api/v1/admin/categories/{id}",
+		handler.AdminJWTAuth(http.HandlerFunc(adminCategoryHandler.UpdateDetails)),
+	)
+
+	mux.Handle(
+		"PATCH /api/v1/admin/categories/{id}/status",
+		handler.AdminJWTAuth(http.HandlerFunc(adminCategoryHandler.UpdateStatus)),
+	)
+
+	// Soft delete: mengubah is_active menjadi FALSE.
+	mux.Handle(
+		"DELETE /api/v1/admin/categories/{id}",
+		handler.AdminJWTAuth(http.HandlerFunc(adminCategoryHandler.Archive)),
+	)
+
+	log.Println("Admin category routes registered successfully")
+
+	// =========================================
+	// 31. ADMIN CUSTOMER ENDPOINTS
+	// =========================================
+
+	mux.Handle(
+		"GET /api/v1/admin/customers",
+		handler.AdminJWTAuth(http.HandlerFunc(adminCustomerHandler.List)),
+	)
+
+	mux.Handle(
+		"GET /api/v1/admin/customers/{id}",
+		handler.AdminJWTAuth(http.HandlerFunc(adminCustomerHandler.GetByID)),
+	)
+
+	mux.Handle(
+		"PATCH /api/v1/admin/customers/{id}/status",
+		handler.AdminJWTAuth(http.HandlerFunc(adminCustomerHandler.UpdateStatus)),
+	)
+
+	mux.Handle(
+		"GET /api/v1/admin/customers/{id}/addresses",
+		handler.AdminJWTAuth(http.HandlerFunc(adminCustomerHandler.ListAddresses)),
+	)
+
+	mux.Handle(
+		"GET /api/v1/admin/customers/{id}/orders",
+		handler.AdminJWTAuth(http.HandlerFunc(adminCustomerHandler.ListOrders)),
+	)
+
+	log.Println("Admin customer routes registered successfully")
+
+	// =========================================
+	// ADMIN ORDER ENDPOINTS
+	// =========================================
+
+	mux.Handle(
+		"GET /api/v1/admin/orders",
+		handler.AdminJWTAuth(
+			http.HandlerFunc(adminOrderHandler.List),
+		),
+	)
+
+	mux.Handle(
+		"GET /api/v1/admin/orders/{id}",
+		handler.AdminJWTAuth(
+			http.HandlerFunc(adminOrderHandler.GetByID),
+		),
+	)
+
+	mux.Handle(
+		"PATCH /api/v1/admin/orders/{id}/status",
+		handler.AdminJWTAuth(
+			http.HandlerFunc(adminOrderHandler.UpdateStatus),
+		),
+	)
+
+	// Update kurir dan nomor resi, sekaligus mengubah status menjadi shipped.
+	mux.Handle(
+		"PATCH /api/v1/admin/orders/{id}/shipping",
+		handler.AdminJWTAuth(
+			http.HandlerFunc(adminOrderHandler.UpdateShipping),
+		),
+	)
+
+	log.Println("Admin order routes registered successfully")
+
+	// =========================================
+	// ADMIN PAYMENT ENDPOINTS
+	// =========================================
+
+	mux.Handle(
+		"GET /api/v1/admin/payments",
+		handler.AdminJWTAuth(
+			http.HandlerFunc(adminPaymentHandler.List),
+		),
+	)
+
+	mux.Handle(
+		"GET /api/v1/admin/payments/{id}",
+		handler.AdminJWTAuth(
+			http.HandlerFunc(adminPaymentHandler.GetByID),
+		),
+	)
+
+	mux.Handle(
+		"PATCH /api/v1/admin/payments/{id}/status",
+		handler.AdminJWTAuth(
+			http.HandlerFunc(adminPaymentHandler.UpdateStatus),
+		),
+	)
+
+	log.Println("Admin payment routes registered successfully")
+
+	// =========================================
+	// 32. INITIALIZE HTTP SERVER
 	// =========================================
 
 	server := &http.Server{
@@ -600,7 +700,7 @@ func main() {
 	}
 
 	// =========================================
-	// 29. START HTTP SERVER
+	// 33. START HTTP SERVER
 	// =========================================
 
 	go func() {
@@ -613,7 +713,7 @@ func main() {
 	}()
 
 	// =========================================
-	// 30. GRACEFUL SHUTDOWN
+	// 34. GRACEFUL SHUTDOWN
 	// =========================================
 
 	stop := make(chan os.Signal, 1)

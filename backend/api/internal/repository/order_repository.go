@@ -13,10 +13,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// =========================================
-// CHECKOUT ERRORS
-// =========================================
-
 var (
 	ErrCheckoutCartNotFound = errors.New("cart not found")
 	ErrCheckoutCartEmpty    = errors.New("cart is empty")
@@ -24,10 +20,6 @@ var (
 	ErrCheckoutStock        = errors.New("insufficient product stock")
 	ErrCheckoutUnavailable  = errors.New("product or variant unavailable")
 )
-
-// =========================================
-// CHECKOUT RESPONSE
-// =========================================
 
 type CheckoutResult struct {
 	ID             int64     `json:"id"`
@@ -40,10 +32,6 @@ type CheckoutResult struct {
 	CreatedAt      time.Time `json:"created_at"`
 }
 
-// =========================================
-// ORDER HISTORY RESPONSE
-// =========================================
-
 type OrderSummary struct {
 	ID             int64     `json:"id"`
 	OrderNumber    string    `json:"order_number"`
@@ -55,10 +43,6 @@ type OrderSummary struct {
 	CreatedAt      time.Time `json:"created_at"`
 }
 
-// =========================================
-// ORDER ITEM DETAIL RESPONSE
-// =========================================
-
 type OrderItemDetail struct {
 	ID          int64  `json:"id"`
 	ProductSKU  string `json:"product_sku"`
@@ -67,10 +51,6 @@ type OrderItemDetail struct {
 	UnitPrice   int64  `json:"unit_price"`
 	Subtotal    int64  `json:"subtotal"`
 }
-
-// =========================================
-// ORDER DETAIL RESPONSE
-// =========================================
 
 type OrderDetail struct {
 	OrderSummary
@@ -81,27 +61,21 @@ type OrderDetail struct {
 	ShippingCity       string            `json:"shipping_city"`
 	ShippingProvince   string            `json:"shipping_province"`
 	ShippingPostalCode string            `json:"shipping_postal_code"`
+	CourierName        *string           `json:"courier_name"`
+	TrackingNumber     *string           `json:"tracking_number"`
+	ShippedAt          *time.Time        `json:"shipped_at"`
+	CompletedAt        *time.Time        `json:"completed_at"`
 	CustomerNote       string            `json:"customer_note"`
 	Items              []OrderItemDetail `json:"items"`
 }
-
-// =========================================
-// ORDER REPOSITORY
-// =========================================
 
 type OrderRepository struct {
 	pool *pgxpool.Pool
 }
 
 func NewOrderRepository(pool *pgxpool.Pool) *OrderRepository {
-	return &OrderRepository{
-		pool: pool,
-	}
+	return &OrderRepository{pool: pool}
 }
-
-// =========================================
-// CHECKOUT ITEM
-// =========================================
 
 type checkoutItem struct {
 	ProductID   int64
@@ -114,10 +88,6 @@ type checkoutItem struct {
 	Price       int64
 	Stock       int32
 }
-
-// =========================================
-// GENERATE ORDER NUMBER
-// =========================================
 
 func generateOrderNumber() (string, error) {
 	randomBytes := make([]byte, 4)
@@ -133,17 +103,12 @@ func generateOrderNumber() (string, error) {
 	), nil
 }
 
-// =========================================
-// CHECKOUT
-// =========================================
-
 func (r *OrderRepository) Checkout(
 	ctx context.Context,
 	customerID int64,
 	addressID int64,
 	customerNote string,
 ) (CheckoutResult, error) {
-
 	var result CheckoutResult
 
 	if customerID <= 0 || addressID <= 0 {
@@ -156,7 +121,6 @@ func (r *OrderRepository) Checkout(
 	if err != nil {
 		return result, err
 	}
-
 	defer tx.Rollback(ctx)
 
 	// 1. Lock cart customer.
@@ -172,7 +136,6 @@ func (r *OrderRepository) Checkout(
 	if errors.Is(err, pgx.ErrNoRows) {
 		return result, ErrCheckoutCartNotFound
 	}
-
 	if err != nil {
 		return result, err
 	}
@@ -220,7 +183,6 @@ func (r *OrderRepository) Checkout(
 	if errors.Is(err, pgx.ErrNoRows) {
 		return result, ErrCheckoutAddress
 	}
-
 	if err != nil {
 		return result, err
 	}
@@ -297,7 +259,6 @@ func (r *OrderRepository) Checkout(
 		rows.Close()
 		return result, err
 	}
-
 	rows.Close()
 
 	if len(items) == 0 {
@@ -306,13 +267,12 @@ func (r *OrderRepository) Checkout(
 
 	// 4. Hitung subtotal berdasarkan harga database.
 	var subtotal int64
-
 	const maxInt64 = int64(^uint64(0) >> 1)
 
 	for _, item := range items {
 		if item.Price < 0 ||
-			int64(item.Quantity) > 0 &&
-				item.Price > maxInt64/int64(item.Quantity) {
+			(int64(item.Quantity) > 0 &&
+				item.Price > maxInt64/int64(item.Quantity)) {
 			return result, errors.New("invalid checkout total")
 		}
 
@@ -432,20 +392,24 @@ func (r *OrderRepository) Checkout(
 	for _, item := range items {
 		lineTotal := item.Price * int64(item.Quantity)
 
+		// Simpan variant_id agar stok bisa dikembalikan
+		// ke varian yang benar ketika order dibatalkan.
 		_, err = tx.Exec(ctx, `
 			INSERT INTO order_items (
 				order_id,
 				product_id,
+				variant_id,
 				product_sku,
 				product_name,
 				quantity,
 				unit_price,
 				subtotal
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		`,
 			result.ID,
 			item.ProductID,
+			item.VariantID,
 			item.VariantSKU,
 			item.ProductName+" - "+item.VariantName,
 			item.Quantity,
@@ -478,7 +442,6 @@ func (r *OrderRepository) Checkout(
 		if errors.Is(err, pgx.ErrNoRows) {
 			return result, ErrCheckoutStock
 		}
-
 		if err != nil {
 			return result, err
 		}
@@ -489,6 +452,7 @@ func (r *OrderRepository) Checkout(
 		_, err = tx.Exec(ctx, `
 			INSERT INTO inventory_movements (
 				product_id,
+				variant_id,
 				movement_type,
 				quantity,
 				stock_before,
@@ -497,9 +461,10 @@ func (r *OrderRepository) Checkout(
 				reference_id,
 				note
 			)
-			VALUES ($1, 'out', $2, $3, $4, $5, $6, $7)
+			VALUES ($1, $2, 'out', $3, $4, $5, $6, $7, $8)
 		`,
 			item.ProductID,
+			item.VariantID,
 			item.Quantity,
 			item.Stock,
 			stockAfter,
@@ -531,17 +496,12 @@ func (r *OrderRepository) Checkout(
 	return result, nil
 }
 
-// =========================================
-// GET CUSTOMER ORDER HISTORY
-// =========================================
-
 func (r *OrderRepository) GetCustomerOrders(
 	ctx context.Context,
 	customerID int64,
 	limit int32,
 	offset int32,
 ) ([]OrderSummary, error) {
-
 	orders := make([]OrderSummary, 0)
 
 	rows, err := r.pool.Query(ctx, `
@@ -567,7 +527,6 @@ func (r *OrderRepository) GetCustomerOrders(
 	if err != nil {
 		return nil, err
 	}
-
 	defer rows.Close()
 
 	for rows.Next() {
@@ -598,16 +557,11 @@ func (r *OrderRepository) GetCustomerOrders(
 	return orders, nil
 }
 
-// =========================================
-// GET CUSTOMER ORDER DETAIL
-// =========================================
-
 func (r *OrderRepository) GetCustomerOrderDetail(
 	ctx context.Context,
 	customerID int64,
 	orderID int64,
 ) (OrderDetail, error) {
-
 	var order OrderDetail
 
 	err := r.pool.QueryRow(ctx, `
@@ -626,6 +580,10 @@ func (r *OrderRepository) GetCustomerOrderDetail(
 			shipping_city,
 			shipping_province,
 			COALESCE(shipping_postal_code, ''),
+			courier_name,
+			tracking_number,
+			shipped_at,
+			completed_at,
 			COALESCE(customer_note, '')
 		FROM orders
 		WHERE id = $1
@@ -648,6 +606,10 @@ func (r *OrderRepository) GetCustomerOrderDetail(
 		&order.ShippingCity,
 		&order.ShippingProvince,
 		&order.ShippingPostalCode,
+		&order.CourierName,
+		&order.TrackingNumber,
+		&order.ShippedAt,
+		&order.CompletedAt,
 		&order.CustomerNote,
 	)
 
@@ -673,7 +635,6 @@ func (r *OrderRepository) GetCustomerOrderDetail(
 	if err != nil {
 		return OrderDetail{}, err
 	}
-
 	defer rows.Close()
 
 	for rows.Next() {
@@ -701,10 +662,6 @@ func (r *OrderRepository) GetCustomerOrderDetail(
 
 	return order, nil
 }
-
-// =========================================
-// FILTER EMPTY ADDRESS VALUES
-// =========================================
 
 func filterEmpty(values []string) []string {
 	result := make([]string, 0, len(values))

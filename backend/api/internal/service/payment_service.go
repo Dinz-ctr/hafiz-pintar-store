@@ -123,6 +123,28 @@ func (s *PaymentService) GetByID(
 }
 
 // =========================================
+// GET PAYMENT BY ID FOR CUSTOMER
+// =========================================
+
+func (s *PaymentService) GetCustomerPaymentByID(
+	ctx context.Context,
+	id int64,
+	customerID int64,
+) (dbsqlc.Payment, error) {
+
+	if id <= 0 || customerID <= 0 {
+		return dbsqlc.Payment{}, ErrInvalidPaymentID
+	}
+
+	// Repository memastikan payment merupakan milik customer.
+	return s.repo.GetCustomerPaymentByID(
+		ctx,
+		id,
+		customerID,
+	)
+}
+
+// =========================================
 // GET PAYMENT BY ORDER ID
 // =========================================
 
